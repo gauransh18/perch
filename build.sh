@@ -19,7 +19,7 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "==> signing (ad-hoc)"
-codesign --force --deep --sign - "$APP"
+codesign --force --sign - "$APP"
 
 echo "==> done: $APP"
 echo "    open $APP"

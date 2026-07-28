@@ -5,15 +5,23 @@ import Foundation
 /// everything that is running, not just what talks to us.
 @MainActor
 final class ProcessScanner {
+    private static let beat: TimeInterval = 6
+    /// When nothing has been found for a while, only scan every Nth beat. `ps`
+    /// and `lsof` are process spawns; running them forever on an idle Mac is
+    /// pure waste.
+    private static let idleSkip = 4
+
     private let state: AppState
     private var timer: Timer?
     private var cwdCache: [Int32: String] = [:]
+    private var skipped = 0
+    private var quiet = false
 
     init(state: AppState) { self.state = state }
 
     func start() {
         tick()
-        timer = Timer.scheduledTimer(withTimeInterval: 6, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: Self.beat, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
     }
@@ -22,29 +30,36 @@ final class ProcessScanner {
 
     private func tick() {
         guard Prefs.scanProcesses else {
-            state.sessions.removeAll { $0.isGhost }
+            if state.sessions.contains(where: { $0.isGhost }) {
+                state.sessions.removeAll { $0.isGhost }
+            }
             return
         }
 
-        let found = Self.scan()
-        let liveIDs = Set(found.map { "pid:\($0.pid)" })
+        if quiet {
+            skipped += 1
+            guard skipped >= Self.idleSkip else { return }
+        }
+        skipped = 0
 
-        // Retire ghosts whose process disappeared.
-        state.sessions.removeAll { $0.isGhost && !liveIDs.contains($0.id) }
+        let found = Self.scan()
+        quiet = found.isEmpty
+        cwdCache = cwdCache.filter { pid, _ in found.contains { $0.pid == pid } }
+
+        // Build the whole next list, then assign once: mutating the published
+        // array per process fired a re-render for every agent on the machine.
+        var next = state.sessions.filter { !$0.isGhost }
+        let now = Date()
 
         for proc in found {
-            // If a hook-backed session already covers this cwd + kind, skip it.
             let cwd = cwd(for: proc.pid)
-            let covered = state.sessions.contains {
-                !$0.isGhost && $0.kind == proc.kind && (!cwd.isEmpty && $0.cwd == cwd)
-            }
+            // A hook-backed session already covers this project; no ghost needed.
+            if next.contains(where: { $0.kind == proc.kind && !cwd.isEmpty && $0.cwd == cwd }) { continue }
+
             let id = "pid:\(proc.pid)"
-            if covered {
-                state.remove(id)
-                continue
-            }
-            if let i = state.sessions.firstIndex(where: { $0.id == id }) {
-                state.sessions[i].lastEventAt = Date()
+            if var existing = state.sessions.first(where: { $0.id == id }) {
+                existing.lastEventAt = now
+                next.append(existing)
                 continue
             }
             var s = Session(id: id, kind: proc.kind, cwd: cwd)
@@ -53,8 +68,11 @@ final class ProcessScanner {
             s.state = .working
             s.terminal.tty = proc.tty
             s.notice = "Detected — no hook integration"
-            state.sessions.append(s)
+            next.append(s)
         }
+
+        if next != state.sessions { state.sessions = next }
+        if let sel = state.selected, !next.contains(where: { $0.id == sel }) { state.selected = nil }
     }
 
     private func cwd(for pid: Int32) -> String {
@@ -62,7 +80,6 @@ final class ProcessScanner {
         let out = Self.shell("/usr/sbin/lsof", ["-a", "-p", "\(pid)", "-d", "cwd", "-Fn"]) ?? ""
         let path = out.split(separator: "\n").first(where: { $0.hasPrefix("n") }).map { String($0.dropFirst()) } ?? ""
         cwdCache[pid] = path
-        if cwdCache.count > 200 { cwdCache.removeAll() }
         return path
     }
 

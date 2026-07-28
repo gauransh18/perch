@@ -13,6 +13,11 @@ final class AppState: ObservableObject {
     @Published var hooksInstalled = false
     @Published var serverPort: UInt16 = 0
 
+    /// Mirrors Prefs so the notch actually re-renders when it is toggled.
+    @Published var approvalMode: Bool = Prefs.approvalMode {
+        didSet { Prefs.approvalMode = approvalMode }
+    }
+
     private var reaper: Timer?
 
     init() {
@@ -67,9 +72,9 @@ final class AppState: ObservableObject {
         case .expanded:
             let rows = min(max(visibleSessions.count, 1), 5)
             let detail = selected != nil ? 190.0 : 0.0
-            return CGSize(width: max(nw + 380, 660), height: nh + 46 + Double(rows) * 58 + detail + 34)
+            return CGSize(width: max(nw + 420, 700), height: nh + 46 + Double(rows) * 58 + detail + 34)
         case .approval:
-            return CGSize(width: max(nw + 380, 660), height: nh + 430)
+            return CGSize(width: max(nw + 420, 700), height: nh + 430)
         }
     }
 
@@ -118,18 +123,23 @@ final class AppState: ObservableObject {
     }
 
     /// Drop sessions that stopped reporting long ago so the notch stays honest.
+    /// Only publishes when something actually changed — an unconditional
+    /// `objectWillChange` here re-rendered the whole island every 5s while idle.
     private func reap() {
         let cutoff = Prefs.idleHideSeconds
         let now = Date()
+
+        let before = sessions.count
         sessions.removeAll { s in
             guard !s.state.isBusy, s.state != .waiting else { return false }
             return now.timeIntervalSince(s.lastEventAt) > cutoff
         }
+        if sessions.count != before, let sel = selected, session(sel) == nil { selected = nil }
+
         // Expire stale approvals (the hook has its own timeout too).
         while let first = approvals.first, now.timeIntervalSince(first.createdAt) > 240 {
             approvals.removeFirst()
             first.resolve(.passthrough)
         }
-        objectWillChange.send()
     }
 }

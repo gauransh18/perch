@@ -88,6 +88,19 @@ final class HookServer {
         try? FileManager.default.removeItem(at: PerchPaths.portFile)
     }
 
+    /// Compares without an early exit so a local attacker cannot walk the token
+    /// out one byte at a time.
+    private static func constantTimeEquals(_ candidate: String?, _ expected: String) -> Bool {
+        guard let candidate else { return false }
+        let a = Array(candidate.utf8), b = Array(expected.utf8)
+        guard !b.isEmpty else { return false }
+        var diff = UInt8(a.count == b.count ? 0 : 1)
+        for i in 0..<max(a.count, b.count) {
+            diff |= (i < a.count ? a[i] : 0) ^ (i < b.count ? b[i] : 0)
+        }
+        return diff == 0
+    }
+
     private static func loadOrCreateToken() -> String {
         if let s = try? String(contentsOf: PerchPaths.tokenFile, encoding: .utf8) {
             let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -152,7 +165,7 @@ final class HookServer {
         // Browsers can reach loopback; refuse anything that smells like a page.
         guard req.headers["origin"] == nil,
               req.headers["sec-fetch-mode"] == nil,
-              req.headers["x-perch-token"] == token else {
+              Self.constantTimeEquals(req.headers["x-perch-token"], token) else {
             respond(conn, status: "403 Forbidden", json: #"{"error":"forbidden"}"#)
             return
         }

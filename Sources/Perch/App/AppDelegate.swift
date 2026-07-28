@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let approval = NSMenuItem(title: "Approve from notch",
                                   action: #selector(toggleApproval), keyEquivalent: "")
         approval.target = self
-        approval.state = Prefs.approvalMode ? .on : .off
+        approval.state = state.approvalMode ? .on : .off
         menu.addItem(approval)
 
         let pin = NSMenuItem(title: "Keep panel open", action: #selector(togglePin), keyEquivalent: "")
@@ -110,8 +110,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func toggleApproval() {
-        Prefs.approvalMode.toggle()
-        state.objectWillChange.send()
+        state.approvalMode.toggle()
+        hotkeys.start()
         rebuildMenu()
     }
 

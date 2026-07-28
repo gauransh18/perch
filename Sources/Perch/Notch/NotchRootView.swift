@@ -135,7 +135,7 @@ private struct HeadBar: View {
             }
         } else {
             HStack(spacing: 10) {
-                if Prefs.approvalMode {
+                if state.approvalMode {
                     Tag(text: "APPROVAL", tint: Color(red: 1, green: 0.72, blue: 0.25))
                 }
                 if state.totalCost > 0 {

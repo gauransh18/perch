@@ -46,8 +46,9 @@ final class NotchWindowController {
         panel.acceptsMouseMovedEvents = true
         panel.animationBehavior = .none
 
-        let root = NotchRootView(state: state, geometry: geometry)
-        let host = NSHostingView(rootView: AnyView(root))
+        // Concrete type, not AnyView: AnyView erases the view tree's identity
+        // and forces SwiftUI to re-diff the whole island on every update.
+        let host = NSHostingView(rootView: NotchRootView(state: state, geometry: geometry))
         host.wantsLayer = true
         panel.contentView = host
         self.panel = panel
@@ -62,8 +63,8 @@ final class NotchWindowController {
         let next = NotchGeometry.current()
         guard next != geometry else { return }
         geometry = next
-        (panel.contentView as? NSHostingView<AnyView>)?.rootView =
-            AnyView(NotchRootView(state: state, geometry: geometry))
+        (panel.contentView as? NSHostingView<NotchRootView>)?.rootView =
+            NotchRootView(state: state, geometry: geometry)
         layout(force: true)
     }
 
@@ -101,8 +102,8 @@ final class NotchWindowController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.38, execute: work)
         }
 
-        if state.presentation != .approval, panel.isKeyWindow {
-            panel.resignKey()
-        }
+        // Note: don't try to hand key status back here. `resignKey()` is a
+        // notification callback, not a setter, and calling it left the panel
+        // believing it was still key.
     }
 }

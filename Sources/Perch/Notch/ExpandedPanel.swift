@@ -82,24 +82,37 @@ private struct SessionRow: View {
 
                 HStack(spacing: 5) {
                     Circle().fill(session.state.color).frame(width: 5, height: 5)
-                    Text(session.state == .waiting ? "needs you" : elapsed)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.45))
+                    if session.state == .waiting {
+                        Text("needs you")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.45))
+                    } else {
+                        Elapsed(since: session.startedAt)
+                    }
                 }
             }
 
-            Button {
-                TerminalJumper.jump(to: session)
-            } label: {
-                Image(systemName: "arrow.up.forward.app")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
-                    .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.white.opacity(0.07)))
+            HStack(spacing: 4) {
+                RowButton(glyph: "bubble.left.and.text.bubble.right",
+                          help: session.transcriptPath == nil
+                              ? "No transcript yet" : "Open chat") {
+                    ChatWindow.shared.open(for: session)
+                }
+                .disabled(session.transcriptPath == nil)
+                .opacity(session.transcriptPath == nil ? 0.35 : 1)
+
+                RowButton(glyph: "folder", help: "Reveal \(session.project) in Finder") {
+                    guard !session.cwd.isEmpty else { return }
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: session.cwd)])
+                }
+                .disabled(session.cwd.isEmpty)
+                .opacity(session.cwd.isEmpty ? 0.35 : 1)
+
+                RowButton(glyph: "arrow.up.forward.app",
+                          help: "Jump to \(session.terminal.friendlyName)") {
+                    TerminalJumper.jump(to: session)
+                }
             }
-            .buttonStyle(.plain)
-            .help("Jump to \(session.terminal.friendlyName)")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -126,8 +139,47 @@ private struct SessionRow: View {
         return session.shortCwd
     }
 
-    private var elapsed: String {
-        let s = Int(Date().timeIntervalSince(session.startedAt))
+}
+
+// MARK: - Row chrome
+
+private struct RowButton: View {
+    let glyph: String
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: glyph)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(hovering ? 0.95 : 0.55))
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.white.opacity(hovering ? 0.14 : 0.07)))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(help)
+    }
+}
+
+/// Ticks itself once a second. The old version read `Date()` inside the row
+/// body, so it only advanced when something else forced a re-render.
+private struct Elapsed: View {
+    let since: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: since, by: 1)) { context in
+            Text(format(context.date.timeIntervalSince(since)))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.45))
+                .monospacedDigit()
+        }
+    }
+
+    private func format(_ interval: TimeInterval) -> String {
+        let s = max(0, Int(interval))
         if s < 60 { return "\(s)s" }
         if s < 3600 { return "\(s / 60)m \(s % 60)s" }
         return "\(s / 3600)h \((s % 3600) / 60)m"

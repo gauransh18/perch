@@ -160,7 +160,9 @@ struct ToolActivity: Identifiable, Equatable {
     let id = UUID()
     var tool: String
     var headline: String        // one-line summary, e.g. "Sources/Perch/main.swift"
-    var detail: String          // multi-line preview (diff, command, query)
+    // Deliberately no `detail`: the multi-line preview is only ever read by the
+    // approval card, which carries its own copy. Keeping it here cost ~4 KB per
+    // tool call for a string nothing rendered.
     var status: Status = .running
     var startedAt = Date()
     var endedAt: Date?
@@ -240,6 +242,32 @@ struct Session: Identifiable, Equatable {
     var netLines: (added: Int, removed: Int) {
         activities.reduce(into: (0, 0)) { acc, a in acc.0 += a.added; acc.1 += a.removed }
     }
+}
+
+// MARK: - Transcript
+
+struct ToolChip: Identifiable, Equatable {
+    let id: String            // tool_use id
+    var name: String
+    var summary: String
+    var input: String
+    var result: String?
+    var isError = false
+}
+
+struct ChatMessage: Identifiable, Equatable {
+    enum Role: String { case user, assistant, summary }
+
+    let id: String
+    var role: Role
+    var text: String = ""
+    var thinking: String = ""
+    var chips: [ToolChip] = []
+    var timestamp: Date?
+    var model: String?
+    var isMeta = false         // hook-injected, not something the human typed
+
+    var isEmpty: Bool { text.isEmpty && thinking.isEmpty && chips.isEmpty }
 }
 
 // MARK: - Approval

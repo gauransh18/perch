@@ -18,7 +18,10 @@ enum ToolSummary {
         "WebSearch", "BashOutput", "ListMcpResourcesTool", "ReadMcpResourceTool",
     ]
 
-    static func make(tool: String, input: [String: Any], cwd: String) -> Result {
+    /// `detail` is the expensive half (diffing, JSON pretty-printing). In
+    /// observe-only mode nothing renders it, so callers pass `detail: false`
+    /// and we skip the work entirely.
+    static func make(tool: String, input: [String: Any], cwd: String, detail wantDetail: Bool = true) -> Result {
         var r = Result(headline: tool, detail: "")
         r.readOnly = readOnlyTools.contains(tool)
 
@@ -34,7 +37,7 @@ enum ToolSummary {
         case "Read", "NotebookRead":
             let p = input["file_path"] as? String ?? input["notebook_path"] as? String ?? ""
             r.headline = rel(p)
-            if let off = input["offset"] as? Int, let lim = input["limit"] as? Int {
+            if wantDetail, let off = input["offset"] as? Int, let lim = input["limit"] as? Int {
                 r.detail = "lines \(off)–\(off + lim)"
             }
 
@@ -43,14 +46,14 @@ enum ToolSummary {
             let content = input["content"] as? String ?? ""
             r.headline = rel(p)
             r.added = content.isEmpty ? 0 : content.components(separatedBy: "\n").count
-            r.detail = preview(content, marker: "+", limit: 14)
+            if wantDetail { r.detail = preview(content, marker: "+", limit: 14) }
 
         case "Edit":
             let p = input["file_path"] as? String ?? ""
             let old = input["old_string"] as? String ?? ""
             let new = input["new_string"] as? String ?? ""
             r.headline = rel(p)
-            let d = diff(old: old, new: new)
+            let d = diff(old: old, new: new, text: wantDetail)
             r.added = d.added; r.removed = d.removed; r.detail = d.text
 
         case "MultiEdit":
@@ -58,50 +61,56 @@ enum ToolSummary {
             let edits = input["edits"] as? [[String: Any]] ?? []
             r.headline = "\(rel(p))  ·  \(edits.count) edit\(edits.count == 1 ? "" : "s")"
             var parts: [String] = []
-            for e in edits.prefix(4) {
-                let d = diff(old: e["old_string"] as? String ?? "", new: e["new_string"] as? String ?? "")
+            for e in edits.prefix(wantDetail ? 4 : edits.count) {
+                let d = diff(old: e["old_string"] as? String ?? "",
+                             new: e["new_string"] as? String ?? "",
+                             text: wantDetail)
                 r.added += d.added; r.removed += d.removed
-                parts.append(d.text)
+                if wantDetail { parts.append(d.text) }
             }
             r.detail = parts.joined(separator: "\n⋯\n")
 
         case "Bash":
             let cmd = input["command"] as? String ?? ""
             r.headline = cmd.replacingOccurrences(of: "\n", with: " ⏎ ")
-            r.detail = cmd
-            if let desc = input["description"] as? String, !desc.isEmpty {
-                r.detail = desc + "\n\n" + cmd
+            if wantDetail {
+                let desc = input["description"] as? String ?? ""
+                r.detail = desc.isEmpty ? cmd : desc + "\n\n" + cmd
             }
 
         case "Glob":
             r.headline = input["pattern"] as? String ?? ""
-            if let p = input["path"] as? String { r.detail = "in \(rel(p))" }
+            if wantDetail, let p = input["path"] as? String { r.detail = "in \(rel(p))" }
 
         case "Grep":
             r.headline = input["pattern"] as? String ?? ""
-            var bits: [String] = []
-            if let p = input["path"] as? String { bits.append("in \(rel(p))") }
-            if let g = input["glob"] as? String { bits.append("glob \(g)") }
-            r.detail = bits.joined(separator: "  ·  ")
+            if wantDetail {
+                var bits: [String] = []
+                if let p = input["path"] as? String { bits.append("in \(rel(p))") }
+                if let g = input["glob"] as? String { bits.append("glob \(g)") }
+                r.detail = bits.joined(separator: "  ·  ")
+            }
 
         case "WebFetch", "WebSearch":
             r.headline = input["url"] as? String ?? input["query"] as? String ?? ""
-            r.detail = input["prompt"] as? String ?? ""
+            if wantDetail { r.detail = input["prompt"] as? String ?? "" }
 
         case "Task", "Agent":
             r.headline = input["description"] as? String ?? "subagent"
-            r.detail = input["prompt"] as? String ?? ""
+            if wantDetail { r.detail = input["prompt"] as? String ?? "" }
 
         case "TodoWrite":
             let todos = input["todos"] as? [[String: Any]] ?? []
             let done = todos.filter { ($0["status"] as? String) == "completed" }.count
             r.headline = "\(done)/\(todos.count) done"
-            r.detail = todos.compactMap { t -> String? in
-                guard let c = t["content"] as? String else { return nil }
-                let s = t["status"] as? String ?? ""
-                let box = s == "completed" ? "[x]" : (s == "in_progress" ? "[~]" : "[ ]")
-                return "\(box) \(c)"
-            }.joined(separator: "\n")
+            if wantDetail {
+                r.detail = todos.compactMap { t -> String? in
+                    guard let c = t["content"] as? String else { return nil }
+                    let s = t["status"] as? String ?? ""
+                    let box = s == "completed" ? "[x]" : (s == "in_progress" ? "[~]" : "[ ]")
+                    return "\(box) \(c)"
+                }.joined(separator: "\n")
+            }
 
         default:
             // MCP tools and anything else: show the most string-ish argument.
@@ -109,7 +118,7 @@ enum ToolSummary {
                 .compactMapValues { $0 as? String }
                 .max(by: { $0.value.count < $1.value.count })
             r.headline = best?.value ?? tool
-            r.detail = compactJSON(input)
+            if wantDetail { r.detail = compactJSON(input) }
         }
 
         if r.headline.isEmpty { r.headline = tool }
@@ -132,7 +141,7 @@ enum ToolSummary {
 
     /// Cheap line-level diff: strip the common prefix/suffix of lines, then show
     /// the changed middle. Good enough for an at-a-glance notch preview.
-    static func diff(old: String, new: String) -> (added: Int, removed: Int, text: String) {
+    static func diff(old: String, new: String, text wantText: Bool = true) -> (added: Int, removed: Int, text: String) {
         var o = old.components(separatedBy: "\n")
         var n = new.components(separatedBy: "\n")
         if old.isEmpty { o = [] }
@@ -146,6 +155,7 @@ enum ToolSummary {
 
         let removedLines = Array(o[head..<(o.count - tail)])
         let addedLines = Array(n[head..<(n.count - tail)])
+        guard wantText else { return (addedLines.count, removedLines.count, "") }
 
         var body: [String] = []
         if head > 0, let ctx = o[safe: head - 1] { body.append("  \(ctx)") }

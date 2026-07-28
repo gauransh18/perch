@@ -61,7 +61,7 @@ struct SettingsView: View {
                 section("Approvals") {
                     Toggle("Approve tool calls from the notch", isOn: $approvalMode)
                         .onChange(of: approvalMode) { _, v in
-                            Prefs.approvalMode = v
+                            AppDelegate.shared?.state.approvalMode = v
                             trusted = HotkeyMonitor.isTrusted
                             AppDelegate.shared?.hotkeys.start()
                         }

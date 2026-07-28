@@ -94,9 +94,10 @@ struct HookRouter {
                                   reply: @escaping (String?) -> Void) {
         let tool = payload["tool_name"] as? String ?? "tool"
         let input = payload["tool_input"] as? [String: Any] ?? [:]
-        let summary = ToolSummary.make(tool: tool, input: input, cwd: cwd)
+        let needsCard = state.approvalMode
+        let summary = ToolSummary.make(tool: tool, input: input, cwd: cwd, detail: needsCard)
 
-        var activity = ToolActivity(tool: tool, headline: summary.headline, detail: summary.detail)
+        var activity = ToolActivity(tool: tool, headline: summary.headline)
         activity.added = summary.added
         activity.removed = summary.removed
 
@@ -108,7 +109,7 @@ struct HookRouter {
         }
 
         // Observe-only unless the user explicitly turned on approval mode.
-        guard Prefs.approvalMode else { reply(nil); return }
+        guard needsCard else { reply(nil); return }
 
         if summary.readOnly && Prefs.autoAllowReadOnly {
             reply(Self.decisionJSON(.allow, reason: "Read-only tool auto-allowed by Perch"))
@@ -184,7 +185,7 @@ struct HookRouter {
     private func refreshUsage(_ sessionID: String) {
         guard Prefs.trackCost,
               let path = state.session(sessionID)?.transcriptPath else { return }
-        TranscriptReader.shared.usage(forTranscript: path, session: sessionID) { usage in
+        TranscriptStore.shared.usage(path: path) { usage in
             Task { @MainActor in
                 state.mutate(sessionID) { $0.usage = usage }
             }

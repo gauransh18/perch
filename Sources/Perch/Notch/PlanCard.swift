@@ -127,8 +127,8 @@ struct PlanCard: View {
                 }
                 .keyboardShortcut("f", modifiers: .command)
 
-                ConfirmButton(title: "Approve", confirmTitle: "Confirm", shortcut: "⌘Y",
-                              tint: Color(red: 0.35, green: 0.85, blue: 0.55)) {
+                PlanButton(title: "Approve", shortcut: "⌘Y",
+                           tint: Color(red: 0.35, green: 0.85, blue: 0.55), filled: true) {
                     state.resolveActive(.allow)
                     SoundEngine.shared.play(.allow)
                 }

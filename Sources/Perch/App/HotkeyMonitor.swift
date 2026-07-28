@@ -47,8 +47,6 @@ final class HotkeyMonitor {
 
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "y":
-            // Same two-step rule as the button: one ⌘Y arms, a second commits.
-            guard state.armApproval() else { return true }
             state.resolveActive(.allow)
             SoundEngine.shared.play(.allow)
             return true

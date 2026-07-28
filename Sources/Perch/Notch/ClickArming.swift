@@ -3,14 +3,13 @@ import SwiftUI
 /// Ignores clicks for a moment after a decision card appears.
 ///
 /// The island lives above the menu bar and grows to several hundred points the
-/// instant a card arrives. If the pointer happens to be resting where a button
-/// lands — and after a resize it very often is — an in-flight click is delivered
-/// straight to that button. In testing this approved plans by itself within
-/// seconds, repeatedly, with nobody aiming at anything.
+/// instant a card arrives. A click already on its way to whatever was under the
+/// pointer gets delivered to the button that just materialised there instead —
+/// so a decision could be made by a click that was aimed at something else
+/// entirely. System permission dialogs guard against the same thing.
 ///
-/// System permission dialogs guard against exactly this. Same idea here: the
-/// buttons are inert and visibly dimmed until the card has been on screen long
-/// enough that a click has to be deliberate.
+/// Half a second, no visual change: dimming for that long reads as a flicker,
+/// and a click inside the window is meant to be ignored rather than explained.
 struct ClickArming: ViewModifier {
     let id: UUID
     var delay: Duration = .milliseconds(500)
@@ -20,7 +19,6 @@ struct ClickArming: ViewModifier {
     func body(content: Content) -> some View {
         content
             .disabled(!armed)
-            .opacity(armed ? 1 : 0.5)
             .allowsHitTesting(armed)
             .task(id: id) {
                 armed = false

@@ -101,8 +101,8 @@ struct ApprovalCard: View {
             }
             .keyboardShortcut("n", modifiers: .command)
 
-            ConfirmButton(title: "Allow", confirmTitle: "Confirm", shortcut: "⌘Y",
-                          tint: Color(red: 0.35, green: 0.85, blue: 0.55)) {
+            ActionButton(title: "Allow", shortcut: "⌘Y",
+                         tint: Color(red: 0.35, green: 0.85, blue: 0.55), filled: true) {
                 state.resolveActive(.allow)
                 SoundEngine.shared.play(.allow)
             }

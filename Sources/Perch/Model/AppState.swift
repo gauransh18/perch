@@ -135,23 +135,7 @@ final class AppState: ObservableObject {
         approvals.append(req)
     }
 
-    /// Two-step guard for ⌘Y, mirroring `ConfirmButton`. Returns true once the
-    /// shortcut has been pressed twice inside the window; the first press only
-    /// arms. Keeps a single stray key event from approving anything.
-    private var approvalArmedAt: Date?
-
-    func armApproval(window: TimeInterval = 4) -> Bool {
-        let now = Date()
-        if let armed = approvalArmedAt, now.timeIntervalSince(armed) <= window {
-            approvalArmedAt = nil
-            return true
-        }
-        approvalArmedAt = now
-        return false
-    }
-
     func resolveActive(_ decision: ApprovalRequest.Decision) {
-        approvalArmedAt = nil
         guard !approvals.isEmpty else { return }
         let req = approvals.removeFirst()
         req.resolve(decision)

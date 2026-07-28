@@ -27,9 +27,23 @@ Approve it, or send feedback and it keeps planning without you touching the
 terminal. On by default and independent of approval mode, because it replaces a
 prompt the agent already shows rather than pre-empting your permission rules.
 
-**Jump** — one click puts you back in the precise tab, split, or tmux pane the
-agent is running in. Scripted support for iTerm2, Terminal.app, tmux, WezTerm and
-kitty; app activation for Ghostty, Warp, Hyper, Alacritty, VS Code and Cursor.
+**Jump** — one click puts you back where the agent is running. How precisely
+depends on what that terminal exposes, and the button's tooltip says which you
+are going to get rather than promising the same thing everywhere:
+
+| | Lands on |
+|---|---|
+| iTerm2, tmux, WezTerm | the exact pane |
+| Terminal.app | the exact tab |
+| kitty, VS Code, Cursor, Windsurf, GNU screen | the exact window |
+| Ghostty, Warp, Alacritty, Hyper, Tabby, Rio, Zed, Wave, zellij | the app |
+| anything else | the app |
+
+That last row is the point. Perch walks the agent's parent process chain to find
+the application that owns its terminal, so a terminal it has never heard of — or
+one that never sets `TERM_PROGRAM`, which is most of them — still gets focused.
+Named terminals only get better names and, where a scripting interface exists, a
+tighter landing. When nothing can be focused, the project opens in Finder.
 
 **Cost** — reads the session transcript and shows tokens and dollars per session
 and in total, so a runaway loop is visible before the bill is.

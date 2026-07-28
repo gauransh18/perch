@@ -109,7 +109,7 @@ private struct SessionRow: View {
                 .opacity(session.cwd.isEmpty ? 0.35 : 1)
 
                 RowButton(glyph: "arrow.up.forward.app",
-                          help: "Jump to \(session.terminal.friendlyName)") {
+                          help: session.terminal.jumpDescription) {
                     TerminalJumper.jump(to: session)
                 }
             }

@@ -119,23 +119,21 @@ struct TerminalContext: Codable, Equatable {
     var tmuxPane: String = ""      // TMUX_PANE, e.g. %3
     var weztermPane: String = ""
     var kittyWindow: String = ""
+    var kittyListen: String = ""   // KITTY_LISTEN_ON, needed for `kitty @ --to`
+    var zellijSession: String = ""
+    var screenSession: String = "" // STY
+    var screenWindow: String = ""  // WINDOW
     var pid: String = ""
+    /// Set once the parent chain has been walked, so it happens per session
+    /// rather than per hook event.
+    var resolvedOwner: Bool = false
+    /// Bundle id of the app that owns the terminal. Taken from
+    /// `__CFBundleIdentifier` when present, then corrected by walking the
+    /// agent's parent chain, which works for terminals we have never seen.
+    var bundleID: String = ""
 
     var isEmpty: Bool {
-        program.isEmpty && tty.isEmpty && tmuxPane.isEmpty
-    }
-
-    var friendlyName: String {
-        if !tmuxPane.isEmpty { return "tmux \(tmuxPane)" }
-        switch program {
-        case "iTerm.app": return "iTerm2"
-        case "Apple_Terminal": return "Terminal"
-        case "vscode": return "VS Code"
-        case "ghostty": return "Ghostty"
-        case "WezTerm": return "WezTerm"
-        case "": return tty.isEmpty ? "Terminal" : tty
-        default: return program
-        }
+        program.isEmpty && tty.isEmpty && tmuxPane.isEmpty && bundleID.isEmpty
     }
 
     init() {}
@@ -148,6 +146,11 @@ struct TerminalContext: Codable, Equatable {
         tmuxPane = headers["x-perch-tmux"] ?? ""
         weztermPane = headers["x-perch-wezterm"] ?? ""
         kittyWindow = headers["x-perch-kitty"] ?? ""
+        kittyListen = headers["x-perch-kitty-listen"] ?? ""
+        zellijSession = headers["x-perch-zellij"] ?? ""
+        screenSession = headers["x-perch-screen"] ?? ""
+        screenWindow = headers["x-perch-screen-window"] ?? ""
+        bundleID = headers["x-perch-bundle"] ?? ""
         pid = headers["x-perch-pid"] ?? ""
     }
 }

@@ -21,6 +21,7 @@ struct HookRouter {
         if let t = payload["transcript_path"] as? String {
             state.mutate(sessionID) { $0.transcriptPath = t }
         }
+        resolveOwningApp(sessionID)
 
         switch event {
         case "SessionStart":
@@ -255,6 +256,22 @@ struct HookRouter {
             return s.hasPrefix("Error:") || s.contains("<tool_use_error>")
         }
         return false
+    }
+
+    /// Pin down which app owns this session's terminal, once, while the agent
+    /// process is still alive to be walked. Ancestry beats `__CFBundleIdentifier`
+    /// — that variable is inherited and goes stale the moment someone launches
+    /// an app from a shell.
+    private func resolveOwningApp(_ sessionID: String) {
+        guard let session = state.session(sessionID),
+              session.terminal.resolvedOwner == false,
+              let pid = pid_t(session.terminal.pid) else { return }
+
+        let bundleID = ProcessTree.owningApp(of: pid)?.bundleIdentifier
+        state.mutate(sessionID) { s in
+            s.terminal.resolvedOwner = true
+            if let bundleID { s.terminal.bundleID = bundleID }
+        }
     }
 
     private func refreshUsage(_ sessionID: String) {

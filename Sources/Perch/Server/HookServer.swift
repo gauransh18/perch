@@ -224,6 +224,11 @@ enum HookScript {
           -H "X-Perch-Tmux: ${TMUX_PANE:-}" \\
           -H "X-Perch-Wezterm: ${WEZTERM_PANE:-}" \\
           -H "X-Perch-Kitty: ${KITTY_WINDOW_ID:-}" \\
+          -H "X-Perch-Kitty-Listen: ${KITTY_LISTEN_ON:-}" \\
+          -H "X-Perch-Zellij: ${ZELLIJ_SESSION_NAME:-}" \\
+          -H "X-Perch-Screen: ${STY:-}" \\
+          -H "X-Perch-Screen-Window: ${WINDOW:-}" \\
+          -H "X-Perch-Bundle: ${__CFBundleIdentifier:-}" \\
           -H "X-Perch-Pid: $PPID" \\
           --data-binary @- \\
           "http://127.0.0.1:$PORT/hook/$EVENT" 2>/dev/null || exit 0

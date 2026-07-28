@@ -16,6 +16,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Perch"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/Perch.icns "$APP/Contents/Resources/Perch.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "==> signing (ad-hoc)"

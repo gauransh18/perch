@@ -46,6 +46,13 @@ open dist/Perch.app
 
 Requirements: macOS 14+, Swift 6 toolchain (Xcode 16+).
 
+The icon is generated, not hand-drawn — `Resources/Perch.icns` is committed, so
+you only need this after editing the generator:
+
+```bash
+swift Tools/MakeIcon.swift
+```
+
 ## How it works
 
 Perch runs a loopback-only HTTP listener on an ephemeral port. On first launch it

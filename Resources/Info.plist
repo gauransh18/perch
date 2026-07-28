@@ -10,6 +10,8 @@
     <string>Perch</string>
     <key>CFBundleIdentifier</key>
     <string>app.perch.mac</string>
+    <key>CFBundleIconFile</key>
+    <string>Perch</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

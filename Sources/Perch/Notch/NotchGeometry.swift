@@ -1,4 +1,44 @@
 import AppKit
+import Foundation
+
+/// How the island sits on the screen.
+enum NotchStyle: String, CaseIterable, Identifiable, Equatable {
+    /// Flush with the top edge so it reads as the hardware notch growing wider.
+    case notch
+    /// Detached rounded card hanging below the menu bar. The only style that
+    /// makes sense on an external display, and the only one with no notch gap
+    /// down the middle of its head bar.
+    case floating
+    /// Merged like `.notch`, but the collapsed state drops the text label and
+    /// shows only the pulse and the activity bars.
+    case compact
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .notch: return "Notch"
+        case .floating: return "Floating"
+        case .compact: return "Compact"
+        }
+    }
+
+    var blurb: String {
+        switch self {
+        case .notch: return "Grows out of the notch, flush with the top edge."
+        case .floating: return "A separate card below the menu bar. Best on external displays."
+        case .compact: return "Merged, but collapsed shows only the pulse and activity."
+        }
+    }
+
+    /// Whether the head bar has to leave a hole for the physical notch.
+    var mergesWithNotch: Bool { self != .floating }
+
+    /// Distance from the top of the screen to the top of the island.
+    func topGap(menuBarHeight: CGFloat) -> CGFloat {
+        self == .floating ? menuBarHeight + 8 : 0
+    }
+}
 
 struct NotchGeometry: Equatable {
     var screenID: CGDirectDisplayID

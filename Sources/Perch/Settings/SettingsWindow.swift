@@ -37,6 +37,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var installed = ClaudeCodeInstaller.isInstalled
     @State private var trusted = HotkeyMonitor.isTrusted
+    @State private var style = Prefs.notchStyle
     @State private var message: String?
 
     var body: some View {
@@ -87,6 +88,10 @@ struct SettingsView: View {
                 }
 
                 section("Notch") {
+                    StylePicker(style: $style)
+                        .onChange(of: style) { _, v in AppDelegate.shared?.state.style = v }
+                    caption(style.blurb)
+
                     Toggle("Always show the island", isOn: $alwaysShow)
                         .onChange(of: alwaysShow) { _, v in Prefs.alwaysShow = v }
                     Toggle("Chiptune alerts", isOn: $sounds)
@@ -180,6 +185,83 @@ struct SettingsView: View {
         } catch {
             message = "Login item change failed: \(error.localizedDescription)"
             launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
+    }
+}
+
+// MARK: - Style picker
+
+/// A segmented control would describe these styles; a thumbnail shows them.
+/// Each tile is a tiny screen with a menu bar and the island drawn in place.
+private struct StylePicker: View {
+    @Binding var style: NotchStyle
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(NotchStyle.allCases) { option in
+                let selected = option == style
+                VStack(spacing: 6) {
+                    Thumbnail(style: option)
+                    Text(option.title)
+                        .font(.system(size: 11, weight: selected ? .semibold : .regular))
+                }
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(selected ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(selected ? Color.accentColor : .clear, lineWidth: 1.5)
+                )
+                .contentShape(Rectangle())
+                .onTapGesture { style = option }
+                .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+                .accessibilityLabel(option.title)
+            }
+            Spacer()
+        }
+    }
+
+    private struct Thumbnail: View {
+        let style: NotchStyle
+
+        var body: some View {
+            ZStack(alignment: .top) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(white: 0.28), Color(white: 0.14)],
+                                         startPoint: .top, endPoint: .bottom))
+
+                // The menu bar, so the island's vertical position reads.
+                VStack(spacing: 0) {
+                    Rectangle().fill(Color.white.opacity(0.10)).frame(height: 6)
+                    Spacer(minLength: 0)
+                }
+
+                island
+            }
+            .frame(width: 92, height: 58)
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+
+        @ViewBuilder private var island: some View {
+            switch style {
+            case .notch:
+                UnevenRoundedRectangle(bottomLeadingRadius: 4, bottomTrailingRadius: 4)
+                    .fill(.black)
+                    .frame(width: 46, height: 12)
+            case .floating:
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(.black)
+                    .frame(width: 40, height: 11)
+                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(.white.opacity(0.18), lineWidth: 0.5))
+                    .padding(.top, 10)
+            case .compact:
+                UnevenRoundedRectangle(bottomLeadingRadius: 4, bottomTrailingRadius: 4)
+                    .fill(.black)
+                    .frame(width: 30, height: 10)
+            }
         }
     }
 }

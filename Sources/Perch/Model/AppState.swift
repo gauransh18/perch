@@ -18,6 +18,10 @@ final class AppState: ObservableObject {
         didSet { Prefs.approvalMode = approvalMode }
     }
 
+    @Published var style: NotchStyle = Prefs.notchStyle {
+        didSet { Prefs.notchStyle = style }
+    }
+
     private var reaper: Timer?
 
     init() {
@@ -61,21 +65,36 @@ final class AppState: ObservableObject {
 
     // MARK: window sizing
 
+    /// Gap kept between the head bar and the first divider when the panel is
+    /// open. Without it the divider lands exactly on the notch's bottom edge
+    /// and the hardware clips it.
+    static let headClearance: CGFloat = 12
+
     func desiredSize(notch: NotchGeometry) -> CGSize {
-        let nw = notch.notchRect.width
+        // Floating has no hole to leave in the middle of its head bar.
+        let nw = style.mergesWithNotch ? notch.notchRect.width : 0
         let nh = notch.notchRect.height
+        let clearance = Self.headClearance
+
         switch presentation {
         case .hidden:
             return CGSize(width: nw + 80, height: nh)
         case .collapsed:
-            return CGSize(width: nw + 236, height: nh + 4)
+            let flanks: CGFloat = style == .compact ? 116 : 236
+            return CGSize(width: nw + flanks, height: nh + 4)
         case .expanded:
             let rows = min(max(visibleSessions.count, 1), 5)
             let detail = selected != nil ? 190.0 : 0.0
-            return CGSize(width: max(nw + 420, 700), height: nh + 46 + Double(rows) * 58 + detail + 34)
+            return CGSize(width: max(nw + 420, 700),
+                          height: nh + clearance + 46 + Double(rows) * 58 + detail + 34)
         case .approval:
-            return CGSize(width: max(nw + 420, 700), height: nh + 430)
+            return CGSize(width: max(nw + 420, 700), height: nh + clearance + 430)
         }
+    }
+
+    /// Distance from the top of the screen down to the top of the island.
+    func topOffset(notch: NotchGeometry) -> CGFloat {
+        style.topGap(menuBarHeight: notch.notchRect.height)
     }
 
     // MARK: mutation

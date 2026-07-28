@@ -7,15 +7,45 @@ final class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// Hosts the SwiftUI tree and owns hover tracking.
+///
+/// SwiftUI's `.onHover` installs a tracking area scoped to the active app, so
+/// the island only opened while Perch itself was frontmost — which is never,
+/// in normal use. An `.activeAlways` area delivers enter/exit regardless of
+/// which app the user is working in.
+final class HoverContainer: NSView {
+    /// Called when the pointer might have arrived. Leaving is decided by the
+    /// controller polling the real pointer position, because resizing the panel
+    /// tears down and rebuilds the tracking area and that emits a spurious exit
+    /// while the cursor is still inside — which collapsed the island the
+    /// instant it opened.
+    var onPointerActivity: (() -> Void)?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
+            owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) { onPointerActivity?() }
+    override func mouseMoved(with event: NSEvent) { onPointerActivity?() }
+    override func mouseExited(with event: NSEvent) { onPointerActivity?() }
+}
+
 @MainActor
 final class NotchWindowController {
     static private(set) var shared: NotchWindowController?
 
     private let state: AppState
     private var panel: NotchPanel!
+    private var hostingView: NSHostingView<NotchRootView>!
     private var geometry: NotchGeometry
     private var bag = Set<AnyCancellable>()
     private var shrinkWork: DispatchWorkItem?
+    private var hoverPoll: Timer?
 
     init(state: AppState) {
         self.state = state
@@ -50,7 +80,21 @@ final class NotchWindowController {
         // and forces SwiftUI to re-diff the whole island on every update.
         let host = NSHostingView(rootView: NotchRootView(state: state, geometry: geometry))
         host.wantsLayer = true
-        panel.contentView = host
+        host.translatesAutoresizingMaskIntoConstraints = false
+
+        let container = HoverContainer()
+        container.wantsLayer = true
+        container.onPointerActivity = { [weak self] in self?.syncHover() }
+        container.addSubview(host)
+        NSLayoutConstraint.activate([
+            host.topAnchor.constraint(equalTo: container.topAnchor),
+            host.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
+
+        panel.contentView = container
+        self.hostingView = host
         self.panel = panel
         layout(force: true)
     }
@@ -63,9 +107,29 @@ final class NotchWindowController {
         let next = NotchGeometry.current()
         guard next != geometry else { return }
         geometry = next
-        (panel.contentView as? NSHostingView<NotchRootView>)?.rootView =
-            NotchRootView(state: state, geometry: geometry)
+        hostingView.rootView = NotchRootView(state: state, geometry: geometry)
         layout(force: true)
+    }
+
+    /// Single source of truth for hover: is the pointer inside the panel right
+    /// now? While it is, poll — the panel resizes underneath the cursor and no
+    /// enter/exit event describes that reliably.
+    private func syncHover() {
+        let inside = panel.frame.contains(NSEvent.mouseLocation)
+        if state.hovering != inside {
+            state.hovering = inside
+            if !inside { state.selected = nil }
+        }
+        if inside {
+            if hoverPoll == nil {
+                hoverPoll = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+                    Task { @MainActor in self?.syncHover() }
+                }
+            }
+        } else {
+            hoverPoll?.invalidate()
+            hoverPoll = nil
+        }
     }
 
     /// Bring the panel up as key so ⌘Y / ⌘N reach the approval card without
@@ -75,11 +139,15 @@ final class NotchWindowController {
         panel.makeKey()
     }
 
+    private func frame(for size: CGSize) -> CGRect {
+        let origin = CGPoint(x: geometry.notchRect.midX - size.width / 2,
+                             y: geometry.screenFrame.maxY - size.height - state.topOffset(notch: geometry))
+        return CGRect(origin: origin, size: size).integral
+    }
+
     private func layout(force: Bool = false) {
         let size = state.desiredSize(notch: geometry)
-        let origin = CGPoint(x: geometry.notchRect.midX - size.width / 2,
-                             y: geometry.screenFrame.maxY - size.height)
-        let target = CGRect(origin: origin, size: size).integral
+        let target = frame(for: size)
         guard force || target != panel.frame else { return }
 
         shrinkWork?.cancel()
@@ -88,14 +156,15 @@ final class NotchWindowController {
         if grows || force {
             panel.setFrame(target, display: true)
             panel.contentView?.needsDisplay = true
+            // The frame moved under the pointer; re-check rather than wait for
+            // an event that may never come.
+            syncHover()
         } else {
             // Let the SwiftUI spring finish before clipping the window down.
             let work = DispatchWorkItem { [weak self] in
                 guard let self else { return }
                 let now = self.state.desiredSize(notch: self.geometry)
-                let o = CGPoint(x: self.geometry.notchRect.midX - now.width / 2,
-                                y: self.geometry.screenFrame.maxY - now.height)
-                self.panel.setFrame(CGRect(origin: o, size: now).integral, display: true)
+                self.panel.setFrame(self.frame(for: now), display: true)
                 self.panel.contentView?.needsDisplay = true
             }
             shrinkWork = work

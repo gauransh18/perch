@@ -28,6 +28,11 @@ kitty; app activation for Ghostty, Warp, Hyper, Alacritty, VS Code and Cursor.
 **Cost** — reads the session transcript and shows tokens and dollars per session
 and in total, so a runaway loop is visible before the bill is.
 
+**Style it** — three island styles in Settings: *Notch* grows out of the
+hardware notch flush with the top edge, *Floating* is a detached card below the
+menu bar (the sane choice on an external display), *Compact* is merged but drops
+the label when collapsed. Macs without a notch default to Floating.
+
 **Everything else** — chiptune alerts synthesised at runtime (no audio files),
 process discovery for agents with no hook support, external-monitor aware,
 follows you across Spaces and full-screen apps.

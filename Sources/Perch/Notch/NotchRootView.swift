@@ -4,10 +4,13 @@ struct NotchRootView: View {
     @ObservedObject var state: AppState
     let geometry: NotchGeometry
 
-    private var notchWidth: CGFloat { geometry.notchRect.width }
+    private var style: NotchStyle { state.style }
+    /// Floating leaves no hole for the hardware, so its head bar is continuous.
+    private var notchWidth: CGFloat { style.mergesWithNotch ? geometry.notchRect.width : 0 }
     private var notchHeight: CGFloat { geometry.notchRect.height }
     private var mode: Presentation { state.presentation }
     private var open: Bool { mode == .expanded || mode == .approval }
+    private var corner: CGFloat { open ? 20 : 13 }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,12 +25,16 @@ struct NotchRootView: View {
 
     /// Everything that should trigger the island's spring, folded into one value.
     private var animationKey: String {
-        "\(mode)|\(state.selected ?? "-")|\(state.sessions.count)|\(state.activeApproval?.id.uuidString ?? "-")"
+        "\(mode)|\(style.rawValue)|\(state.selected ?? "-")|\(state.sessions.count)|\(state.activeApproval?.id.uuidString ?? "-")"
     }
 
     private var island: some View {
         VStack(spacing: 0) {
-            HeadBar(state: state, notchWidth: notchWidth, height: notchHeight, mode: mode)
+            HeadBar(state: state, notchWidth: notchWidth, height: notchHeight,
+                    mode: mode, style: style)
+                // Keeps the divider below off the notch's bottom edge, which
+                // was clipping it against the hardware.
+                .padding(.bottom, open ? AppState.headClearance : 0)
 
             // ZStack, not VStack: during a crossfade the outgoing panel must
             // overlay the incoming one instead of pushing it down the screen.
@@ -47,28 +54,43 @@ struct NotchRootView: View {
         .overlay(alignment: .topLeading) { flare(mirrored: false) }
         .overlay(alignment: .topTrailing) { flare(mirrored: true) }
         .compositingGroup()
-        .shadow(color: .black.opacity(open ? 0.55 : 0), radius: 24, y: 10)
-        .onHover { hovering in
-            state.hovering = hovering
-            if !hovering { state.selected = nil }
-        }
+        .shadow(color: .black.opacity(shadowOpacity), radius: open ? 24 : 14, y: open ? 10 : 5)
+        // Hover is tracked by HoverContainer, not `.onHover`: SwiftUI's tracking
+        // area is active-app-only, so the island stayed shut while the user was
+        // working in their editor.
+    }
+
+    /// Floating is detached, so it needs a shadow even when collapsed or it
+    /// reads as a smudge on the wallpaper.
+    private var shadowOpacity: Double {
+        if mode == .hidden { return 0 }
+        if open { return 0.55 }
+        return style == .floating ? 0.4 : 0
     }
 
     @ViewBuilder private var background: some View {
         if mode == .hidden {
             Color.black.opacity(0.001)
-        } else {
-            NotchShape(bottomRadius: open ? 20 : 13)
+        } else if style.mergesWithNotch {
+            NotchShape(bottomRadius: corner)
                 .fill(Color.black)
                 .overlay(
-                    NotchShape(bottomRadius: open ? 20 : 13)
+                    NotchShape(bottomRadius: corner)
                         .stroke(Color.white.opacity(open ? 0.10 : 0.04), lineWidth: 1)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: corner + 3, style: .continuous)
+                .fill(Color.black)
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner + 3, style: .continuous)
+                        .stroke(Color.white.opacity(open ? 0.12 : 0.08), lineWidth: 1)
                 )
         }
     }
 
     @ViewBuilder private func flare(mirrored: Bool) -> some View {
-        if mode != .hidden {
+        // The fillets only make sense where the island meets the screen edge.
+        if mode != .hidden, style.mergesWithNotch {
             Flare(mirrored: mirrored)
                 .fill(Color.black)
                 .frame(width: 9, height: 9)
@@ -84,13 +106,14 @@ private struct HeadBar: View {
     let notchWidth: CGFloat
     let height: CGFloat
     let mode: Presentation
+    let style: NotchStyle
 
     var body: some View {
         HStack(spacing: 0) {
             leading
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
-            Color.clear.frame(width: notchWidth)
+            if notchWidth > 0 { Color.clear.frame(width: notchWidth) }
             trailing
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 12)
@@ -107,10 +130,13 @@ private struct HeadBar: View {
             HStack(spacing: 7) {
                 Pulse(color: state.headline.color, animating: state.headline.isBusy)
                 if mode == .collapsed {
-                    Text(collapsedLabel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.86))
-                        .lineLimit(1)
+                    // Compact trades the label for a smaller footprint.
+                    if style != .compact {
+                        Text(collapsedLabel)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.86))
+                            .lineLimit(1)
+                    }
                 } else {
                     Text("PERCH")
                         .font(.system(size: 10, weight: .bold, design: .rounded))

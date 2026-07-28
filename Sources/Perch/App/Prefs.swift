@@ -13,6 +13,7 @@ enum Prefs {
         static let scanProcesses = "scanProcesses"
         static let idleHideSeconds = "idleHideSeconds"
         static let trackCost = "trackCost"
+        static let notchStyle = "notchStyle"
     }
 
     static func registerDefaults() {
@@ -25,7 +26,21 @@ enum Prefs {
             Key.scanProcesses: true,
             Key.idleHideSeconds: 90.0,
             Key.trackCost: true,
+            // notchStyle is deliberately absent: with no stored value the
+            // getter picks a default from the hardware.
         ])
+    }
+
+    /// Defaults to floating on a Mac with no notch, where there is nothing to
+    /// merge with and a flush island just looks like a stuck menu bar.
+    static var notchStyle: NotchStyle {
+        get {
+            if let raw = d.string(forKey: Key.notchStyle), let s = NotchStyle(rawValue: raw) {
+                return s
+            }
+            return NotchGeometry.current().hasNotch ? .notch : .floating
+        }
+        set { d.set(newValue.rawValue, forKey: Key.notchStyle) }
     }
 
     /// When on, Perch answers Claude Code's PreToolUse hook with allow/deny.

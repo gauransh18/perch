@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-enum Presentation: Equatable { case hidden, collapsed, expanded, approval }
+enum Presentation: Equatable { case hidden, collapsed, expanded, approval, plan }
 
 @MainActor
 final class AppState: ObservableObject {
@@ -53,7 +53,7 @@ final class AppState: ObservableObject {
     }
 
     var presentation: Presentation {
-        if activeApproval != nil { return .approval }
+        if let active = activeApproval { return active.kind == .plan ? .plan : .approval }
         if hovering || pinned { return .expanded }
         if sessions.isEmpty && !Prefs.alwaysShow { return .hidden }
         return .collapsed
@@ -89,6 +89,10 @@ final class AppState: ObservableObject {
                           height: nh + clearance + 46 + Double(rows) * 58 + detail + 34)
         case .approval:
             return CGSize(width: max(nw + 420, 700), height: nh + clearance + 430)
+        case .plan:
+            // Plans are prose. Give them room, but stay clear of the Dock.
+            let cap = (notch.screenFrame.height * 0.72) - nh - clearance
+            return CGSize(width: max(nw + 480, 760), height: nh + clearance + min(560, cap))
         }
     }
 
@@ -131,7 +135,23 @@ final class AppState: ObservableObject {
         approvals.append(req)
     }
 
+    /// Two-step guard for ⌘Y, mirroring `ConfirmButton`. Returns true once the
+    /// shortcut has been pressed twice inside the window; the first press only
+    /// arms. Keeps a single stray key event from approving anything.
+    private var approvalArmedAt: Date?
+
+    func armApproval(window: TimeInterval = 4) -> Bool {
+        let now = Date()
+        if let armed = approvalArmedAt, now.timeIntervalSince(armed) <= window {
+            approvalArmedAt = nil
+            return true
+        }
+        approvalArmedAt = now
+        return false
+    }
+
     func resolveActive(_ decision: ApprovalRequest.Decision) {
+        approvalArmedAt = nil
         guard !approvals.isEmpty else { return }
         let req = approvals.removeFirst()
         req.resolve(decision)
@@ -156,7 +176,7 @@ final class AppState: ObservableObject {
         if sessions.count != before, let sel = selected, session(sel) == nil { selected = nil }
 
         // Expire stale approvals (the hook has its own timeout too).
-        while let first = approvals.first, now.timeIntervalSince(first.createdAt) > 240 {
+        while let first = approvals.first, now.timeIntervalSince(first.createdAt) > first.expiry {
             approvals.removeFirst()
             first.resolve(.passthrough)
         }

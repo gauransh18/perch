@@ -273,9 +273,21 @@ struct ChatMessage: Identifiable, Equatable {
 // MARK: - Approval
 
 struct ApprovalRequest: Identifiable, Equatable {
-    enum Decision { case allow, deny, passthrough }
+    enum Decision: Equatable {
+        case allow
+        case deny
+        /// Rejected with a message for the agent to act on. Claude Code feeds
+        /// `permissionDecisionReason` back into the conversation, which is what
+        /// makes plan feedback work without touching the terminal.
+        case feedback(String)
+        /// Hand the decision back to the agent's own prompt.
+        case passthrough
+    }
+
+    enum Kind { case tool, plan }
 
     let id = UUID()
+    var kind: Kind = .tool
     var sessionID: String
     var agent: AgentKind
     var project: String
@@ -283,10 +295,16 @@ struct ApprovalRequest: Identifiable, Equatable {
     var tool: String
     var headline: String
     var detail: String
+    /// Raw Markdown, for `.plan` requests.
+    var plan: String = ""
     var added = 0
     var removed = 0
     var createdAt = Date()
     var resolve: (Decision) -> Void
+
+    /// Plans take longer to read than a one-line command. Both stay under the
+    /// hook shim's 300s ceiling so Perch always answers before curl gives up.
+    var expiry: TimeInterval { kind == .plan ? 270 : 240 }
 
     static func == (a: ApprovalRequest, b: ApprovalRequest) -> Bool { a.id == b.id }
 }

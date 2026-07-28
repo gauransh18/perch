@@ -14,6 +14,7 @@ enum Prefs {
         static let idleHideSeconds = "idleHideSeconds"
         static let trackCost = "trackCost"
         static let notchStyle = "notchStyle"
+        static let planReview = "planReview"
     }
 
     static func registerDefaults() {
@@ -26,6 +27,7 @@ enum Prefs {
             Key.scanProcesses: true,
             Key.idleHideSeconds: 90.0,
             Key.trackCost: true,
+            Key.planReview: true,
             // notchStyle is deliberately absent: with no stored value the
             // getter picks a default from the hardware.
         ])
@@ -48,6 +50,14 @@ enum Prefs {
     static var approvalMode: Bool {
         get { d.bool(forKey: Key.approvalMode) }
         set { d.set(newValue, forKey: Key.approvalMode) }
+    }
+
+    /// Intercept ExitPlanMode and review the plan in the notch. Separate from
+    /// `approvalMode` because it replaces a prompt the agent already shows,
+    /// rather than pre-empting the user's own permission rules.
+    static var planReview: Bool {
+        get { d.bool(forKey: Key.planReview) }
+        set { d.set(newValue, forKey: Key.planReview) }
     }
 
     static var autoAllowReadOnly: Bool {

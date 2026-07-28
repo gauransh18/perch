@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var installed = ClaudeCodeInstaller.isInstalled
     @State private var trusted = HotkeyMonitor.isTrusted
     @State private var style = Prefs.notchStyle
+    @State private var planReview = Prefs.planReview
     @State private var message: String?
 
     var body: some View {
@@ -60,6 +61,10 @@ struct SettingsView: View {
                 }
 
                 section("Approvals") {
+                    Toggle("Review plans in the notch", isOn: $planReview)
+                        .onChange(of: planReview) { _, v in Prefs.planReview = v }
+                    caption("When the agent finishes planning, the plan is rendered in the notch. Approve it, or send feedback and it keeps planning. Independent of the setting below: this replaces a prompt the agent already shows rather than pre-empting your permission rules.")
+
                     Toggle("Approve tool calls from the notch", isOn: $approvalMode)
                         .onChange(of: approvalMode) { _, v in
                             AppDelegate.shared?.state.approvalMode = v

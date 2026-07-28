@@ -101,7 +101,8 @@ struct ApprovalCard: View {
             }
             .keyboardShortcut("n", modifiers: .command)
 
-            ActionButton(title: "Allow", shortcut: "⌘Y", tint: Color(red: 0.35, green: 0.85, blue: 0.55), filled: true) {
+            ConfirmButton(title: "Allow", confirmTitle: "Confirm", shortcut: "⌘Y",
+                          tint: Color(red: 0.35, green: 0.85, blue: 0.55)) {
                 state.resolveActive(.allow)
                 SoundEngine.shared.play(.allow)
             }
@@ -109,6 +110,7 @@ struct ApprovalCard: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .clickArmed(request.id)
     }
 
     /// Colourise the -/+ diff preview without pulling in a syntax engine.

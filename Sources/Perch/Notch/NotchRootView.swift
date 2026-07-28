@@ -9,7 +9,7 @@ struct NotchRootView: View {
     private var notchWidth: CGFloat { style.mergesWithNotch ? geometry.notchRect.width : 0 }
     private var notchHeight: CGFloat { geometry.notchRect.height }
     private var mode: Presentation { state.presentation }
-    private var open: Bool { mode == .expanded || mode == .approval }
+    private var open: Bool { mode == .expanded || mode == .approval || mode == .plan }
     private var corner: CGFloat { open ? 20 : 13 }
 
     var body: some View {
@@ -39,7 +39,11 @@ struct NotchRootView: View {
             // ZStack, not VStack: during a crossfade the outgoing panel must
             // overlay the incoming one instead of pushing it down the screen.
             ZStack(alignment: .top) {
-                if mode == .approval, let request = state.activeApproval {
+                if mode == .plan, let request = state.activeApproval {
+                    PlanCard(state: state, request: request)
+                        .id(request.id)
+                        .transition(.opacity)
+                } else if mode == .approval, let request = state.activeApproval {
                     ApprovalCard(state: state, request: request)
                         .id(request.id)
                         .transition(.opacity)

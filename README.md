@@ -21,6 +21,12 @@ real diff preview; `⌘Y` allows, `⌘N` denies, `esc` hands the decision back t
 Claude's own prompt. Read-only tools can auto-allow so you are only asked about
 things that actually change something.
 
+**Review plans** — when the agent finishes planning, the plan is rendered in the
+notch as real Markdown: headings, numbered steps, task lists, fenced code.
+Approve it, or send feedback and it keeps planning without you touching the
+terminal. On by default and independent of approval mode, because it replaces a
+prompt the agent already shows rather than pre-empting your permission rules.
+
 **Jump** — one click puts you back in the precise tab, split, or tmux pane the
 agent is running in. Scripted support for iTerm2, Terminal.app, tmux, WezTerm and
 kitty; app activation for Ghostty, Warp, Hyper, Alacritty, VS Code and Cursor.

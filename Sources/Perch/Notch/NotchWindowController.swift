@@ -132,11 +132,13 @@ final class NotchWindowController {
         }
     }
 
-    /// Bring the panel up as key so ⌘Y / ⌘N reach the approval card without
-    /// stealing focus from the editor the user is typing in.
+    /// Surface the card without taking the keyboard. `makeKey()` here pulled
+    /// focus out of whatever the user was typing in, which is both rude and
+    /// dangerous: their next Return landed on this panel's buttons. ⌘Y / ⌘N
+    /// come from the global hotkey monitor instead, and clicking the feedback
+    /// field makes the panel key on its own.
     func focusForApproval() {
         panel.orderFrontRegardless()
-        panel.makeKey()
     }
 
     private func frame(for size: CGSize) -> CGRect {

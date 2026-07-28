@@ -94,6 +94,18 @@ struct HookRouter {
                                   reply: @escaping (String?) -> Void) {
         let tool = payload["tool_name"] as? String ?? "tool"
         let input = payload["tool_input"] as? [String: Any] ?? [:]
+
+        // Plan review is its own opt-in, independent of approval mode. Exiting
+        // plan mode is a decision the agent stops and asks about anyway, so
+        // answering it from the notch replaces a prompt rather than bypassing
+        // a permission rule the user configured.
+        if Self.isPlanExit(tool), Prefs.planReview,
+           let plan = (input["plan"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !plan.isEmpty {
+            handlePlan(sessionID: sessionID, cwd: cwd, tool: tool, plan: plan, reply: reply)
+            return
+        }
+
         let needsCard = state.approvalMode
         let summary = ToolSummary.make(tool: tool, input: input, cwd: cwd, detail: needsCard)
 
@@ -139,9 +151,10 @@ struct HookRouter {
                     }
                 }
                 switch decision {
-                case .allow:       reply(Self.decisionJSON(.allow, reason: "Allowed in Perch"))
-                case .deny:        reply(Self.decisionJSON(.deny, reason: "Denied in Perch"))
-                case .passthrough: reply(nil)
+                case .allow:            reply(Self.decisionJSON(.allow, reason: "Allowed in Perch"))
+                case .deny:             reply(Self.decisionJSON(.deny, reason: "Denied in Perch"))
+                case .feedback(let note): reply(Self.decisionJSON(.deny, reason: note))
+                case .passthrough:      reply(nil)
                 }
             })
 
@@ -150,11 +163,73 @@ struct HookRouter {
         NotchWindowController.shared?.focusForApproval()
     }
 
+    // MARK: Plan review
+
+    static func isPlanExit(_ tool: String) -> Bool {
+        let name = tool.lowercased().replacingOccurrences(of: "_", with: "")
+        return name == "exitplanmode" || name == "exitplan"
+    }
+
+    private func handlePlan(sessionID: String,
+                            cwd: String,
+                            tool: String,
+                            plan: String,
+                            reply: @escaping (String?) -> Void) {
+        let title = Markdown.title(of: plan)
+        let activity = ToolActivity(tool: tool, headline: ToolSummary.truncate(title, 140))
+
+        state.mutate(sessionID) { s in
+            s.state = .waiting
+            s.notice = "Plan ready for review"
+            s.activities.append(activity)
+        }
+
+        let session = state.session(sessionID)
+        let request = ApprovalRequest(
+            kind: .plan,
+            sessionID: sessionID,
+            agent: session?.kind ?? .claudeCode,
+            project: session?.project ?? "",
+            cwd: cwd,
+            tool: tool,
+            headline: title,
+            detail: "",
+            plan: plan,
+            resolve: { decision in
+                Task { @MainActor in
+                    state.mutate(sessionID) { s in
+                        guard let i = s.activities.lastIndex(where: { $0.id == activity.id }) else { return }
+                        s.activities[i].endedAt = Date()
+                        switch decision {
+                        case .allow: s.activities[i].status = .ok
+                        case .deny, .feedback: s.activities[i].status = .denied
+                        case .passthrough: s.activities[i].status = .ok
+                        }
+                    }
+                    state.mutate(sessionID) { $0.notice = nil; $0.state = .working }
+                }
+                switch decision {
+                case .allow:
+                    reply(Self.decisionJSON(.allow, reason: "Plan approved in Perch"))
+                case .deny:
+                    reply(Self.decisionJSON(.deny, reason: "Plan rejected in Perch"))
+                case .feedback(let note):
+                    reply(Self.decisionJSON(.deny, reason: note))
+                case .passthrough:
+                    reply(nil)
+                }
+            })
+
+        state.enqueue(request)
+        SoundEngine.shared.play(.attention)
+        NotchWindowController.shared?.focusForApproval()
+    }
+
     private static func decisionJSON(_ d: ApprovalRequest.Decision, reason: String) -> String {
         let value: String
         switch d {
         case .allow: value = "allow"
-        case .deny: value = "deny"
+        case .deny, .feedback: value = "deny"
         case .passthrough: value = "ask"
         }
         let obj: [String: Any] = [

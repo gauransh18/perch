@@ -99,6 +99,11 @@ enum ToolSummary {
             r.headline = input["description"] as? String ?? "subagent"
             if wantDetail { r.detail = input["prompt"] as? String ?? "" }
 
+        case "ExitPlanMode", "exit_plan_mode":
+            let plan = input["plan"] as? String ?? ""
+            r.headline = Markdown.title(of: plan)
+            if wantDetail { r.detail = plan }
+
         case "TodoWrite":
             let todos = input["todos"] as? [[String: Any]] ?? []
             let done = todos.filter { ($0["status"] as? String) == "completed" }.count

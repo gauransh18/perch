@@ -12,6 +12,9 @@ enum PerchPaths {
     static let claudeDir = home.appendingPathComponent(".claude", isDirectory: true)
     static let claudeSettings = claudeDir.appendingPathComponent("settings.json")
 
+    static let geminiDir = home.appendingPathComponent(".gemini", isDirectory: true)
+    static let geminiSettings = geminiDir.appendingPathComponent("settings.json")
+
     static let codexDir = home.appendingPathComponent(".codex", isDirectory: true)
     static let codexSessions = codexDir.appendingPathComponent("sessions", isDirectory: true)
 

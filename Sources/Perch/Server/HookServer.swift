@@ -186,9 +186,16 @@ final class HookServer {
         let event = eventFromPath ?? (payload["hook_event_name"] as? String) ?? "Unknown"
         let terminal = TerminalContext(headers: req.headers)
 
+        // The shim reports which agent invoked it; the router keys off this to
+        // pick the right event vocabulary and reply shape.
+        var enriched = payload
+        if enriched["agent"] == nil, let agent = req.headers["x-perch-agent"], !agent.isEmpty {
+            enriched["agent"] = agent
+        }
+
         Task { @MainActor [weak self] in
             guard let self else { return }
-            HookRouter(state: self.state).route(event: event, payload: payload, terminal: terminal) { reply in
+            HookRouter(state: self.state).route(event: event, payload: enriched, terminal: terminal) { reply in
                 self.respond(conn, json: reply ?? "")
             }
         }
@@ -212,6 +219,7 @@ enum HookScript {
         [ -n "$PORT" ] && [ -n "$TOKEN" ] || exit 0
 
         EVENT="${1:-Unknown}"
+        AGENT="${2:-claudeCode}"
         TTY=$(ps -o tty= -p $$ 2>/dev/null | tr -d ' \\n')
 
         curl -sS --max-time 300 \\
@@ -230,6 +238,7 @@ enum HookScript {
           -H "X-Perch-Screen-Window: ${WINDOW:-}" \\
           -H "X-Perch-Bundle: ${__CFBundleIdentifier:-}" \\
           -H "X-Perch-Pid: $PPID" \\
+          -H "X-Perch-Agent: $AGENT" \\
           --data-binary @- \\
           "http://127.0.0.1:$PORT/hook/$EVENT" 2>/dev/null || exit 0
         exit 0

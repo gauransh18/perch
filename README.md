@@ -67,18 +67,6 @@ Antigravity exposes nothing to read:
 If Antigravity ever ships hooks or writes a real transcript, it slots into the
 same pipeline the other agents use.
 
-**Gemini CLI** — hooked properly, not watched. Gemini's `BeforeTool` event can
-return `decision: "deny"`, so approvals work there the same way they do in Claude
-Code. Perch installs into `~/.gemini/settings.json` and translates at the edge:
-its event names (`BeforeTool` → `PreToolUse`), its tool names (`run_shell_command`
-→ `Bash`, `replace` → `Edit`, `search_file_content` → `Grep`) and a couple of
-argument aliases all normalise onto one pipeline, so summaries, diffs, sounds and
-the approval card need no per-agent branches. Replies go back in Gemini's flat
-`{decision, reason}` shape rather than Claude's nested one.
-
-Nothing is written unless Gemini CLI is actually installed — a bare `~/.gemini`
-does not count, since Antigravity and other Google tools share that directory.
-
 **Codex** — Codex has no equivalent of Claude Code's `PreToolUse` hook; its only
 callback fires after a turn has already ended. So Perch watches instead of
 hooking, reading the rollout transcript each session writes as it goes:

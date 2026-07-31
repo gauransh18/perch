@@ -32,9 +32,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             try? ClaudeCodeInstaller.install()
         }
 
-        if Prefs.geminiHooks, GeminiCLIInstaller.isPresent, !GeminiCLIInstaller.isInstalled {
-            try? GeminiCLIInstaller.install()
-        }
         refreshInstallState()
 
         scanner = ProcessScanner(state: state)

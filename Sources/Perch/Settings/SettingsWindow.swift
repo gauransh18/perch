@@ -34,7 +34,6 @@ struct SettingsView: View {
     @State private var alwaysShow = Prefs.alwaysShow
     @State private var scanProcesses = Prefs.scanProcesses
     @State private var watchCodex = Prefs.watchCodex
-    @State private var geminiHooks = Prefs.geminiHooks
     @State private var trackCost = Prefs.trackCost
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var installed = ClaudeCodeInstaller.isInstalled
@@ -111,16 +110,6 @@ struct SettingsView: View {
                 section("Discovery") {
                     Toggle("Detect agents without hook support", isOn: $scanProcesses)
                         .onChange(of: scanProcesses) { _, v in Prefs.scanProcesses = v }
-
-                    Toggle("Hook into Gemini CLI", isOn: $geminiHooks)
-                        .onChange(of: geminiHooks) { _, v in
-                            Prefs.geminiHooks = v
-                            if v, GeminiCLIInstaller.isPresent { try? GeminiCLIInstaller.install() }
-                            else { try? GeminiCLIInstaller.uninstall() }
-                        }
-                    Text("Gemini CLI has a BeforeTool hook that can block, so it gets the full treatment — live feed and approvals both.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
 
                     Toggle("Watch Codex sessions", isOn: $watchCodex)
                         .onChange(of: watchCodex) { _, v in Prefs.watchCodex = v }

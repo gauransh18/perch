@@ -17,15 +17,6 @@ struct HookRouter {
         let cwd = payload["cwd"] as? String ?? ""
         let kind = AgentKind(rawValue: payload["agent"] as? String ?? "") ?? .claudeCode
 
-        // Gemini CLI speaks its own event names. Translating here keeps one
-        // pipeline instead of a parallel switch per agent; an event it does not
-        // map is one we never subscribed to, so drop it rather than mis-handle it.
-        var event = event
-        if kind == .gemini {
-            guard let canonical = GeminiCLI.canonicalEvent(event) else { reply(nil); return }
-            event = canonical
-        }
-
         state.upsert(id: sessionID, kind: kind, cwd: cwd, terminal: terminal)
         if let t = payload["transcript_path"] as? String {
             state.mutate(sessionID) { $0.transcriptPath = t }
@@ -48,11 +39,10 @@ struct HookRouter {
             reply(nil)
 
         case "PreToolUse":
-            handlePreToolUse(sessionID: sessionID, cwd: cwd, kind: kind, payload: payload, reply: reply)
+            handlePreToolUse(sessionID: sessionID, cwd: cwd, payload: payload, reply: reply)
 
         case "PostToolUse":
-            var tool = payload["tool_name"] as? String ?? "tool"
-            if kind == .gemini { tool = GeminiCLI.canonicalTool(tool) }
+            let tool = payload["tool_name"] as? String ?? "tool"
             let failed = isFailure(payload["tool_response"])
             state.mutate(sessionID) { s in
                 if let i = s.activities.lastIndex(where: { $0.tool == tool && $0.status == .running }) {
@@ -101,15 +91,10 @@ struct HookRouter {
 
     private func handlePreToolUse(sessionID: String,
                                   cwd: String,
-                                  kind: AgentKind,
                                   payload: [String: Any],
                                   reply: @escaping (String?) -> Void) {
-        var tool = payload["tool_name"] as? String ?? "tool"
-        var input = payload["tool_input"] as? [String: Any] ?? [:]
-        if kind == .gemini {
-            tool = GeminiCLI.canonicalTool(tool)
-            input = GeminiCLI.canonicalInput(tool: tool, input)
-        }
+        let tool = payload["tool_name"] as? String ?? "tool"
+        let input = payload["tool_input"] as? [String: Any] ?? [:]
 
         // Plan review is its own opt-in, independent of approval mode. Exiting
         // plan mode is a decision the agent stops and asks about anyway, so
@@ -140,7 +125,7 @@ struct HookRouter {
         guard needsCard else { reply(nil); return }
 
         if summary.readOnly && Prefs.autoAllowReadOnly {
-            reply(Self.decisionJSON(.allow, reason: "Read-only tool auto-allowed by Perch", kind: kind))
+            reply(Self.decisionJSON(.allow, reason: "Read-only tool auto-allowed by Perch"))
             return
         }
 
@@ -167,9 +152,9 @@ struct HookRouter {
                     }
                 }
                 switch decision {
-                case .allow:            reply(Self.decisionJSON(.allow, reason: "Allowed in Perch", kind: kind))
-                case .deny:             reply(Self.decisionJSON(.deny, reason: "Denied in Perch", kind: kind))
-                case .feedback(let note): reply(Self.decisionJSON(.deny, reason: note, kind: kind))
+                case .allow:            reply(Self.decisionJSON(.allow, reason: "Allowed in Perch"))
+                case .deny:             reply(Self.decisionJSON(.deny, reason: "Denied in Perch"))
+                case .feedback(let note): reply(Self.decisionJSON(.deny, reason: note))
                 case .passthrough:      reply(nil)
                 }
             })
@@ -241,18 +226,7 @@ struct HookRouter {
         NotchWindowController.shared?.focusForApproval()
     }
 
-    private static func decisionJSON(_ d: ApprovalRequest.Decision,
-                                     reason: String,
-                                     kind: AgentKind = .claudeCode) -> String {
-        // Gemini wants a flat {decision, reason}; Claude Code wants the nested
-        // hookSpecificOutput shape. Same decision, different envelope.
-        if kind == .gemini {
-            switch d {
-            case .allow: return GeminiCLI.decisionJSON(allow: true, reason: reason)
-            case .deny, .feedback: return GeminiCLI.decisionJSON(allow: false, reason: reason)
-            case .passthrough: return ""
-            }
-        }
+    private static func decisionJSON(_ d: ApprovalRequest.Decision, reason: String) -> String {
         let value: String
         switch d {
         case .allow: value = "allow"

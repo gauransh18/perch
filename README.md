@@ -1,5 +1,9 @@
 # Perch
 
+[![Perch on apps.gauranshsharma.com](https://img.shields.io/badge/read%20more-apps.gauranshsharma.com-2fb344?style=for-the-badge&labelColor=17130f)](https://apps.gauranshsharma.com/perch/)
+[![Platform: macOS 14 or later](https://img.shields.io/badge/platform-macOS%2014%2B-f4f4f7?style=for-the-badge&labelColor=17130f)](https://apps.gauranshsharma.com/perch/)
+[![Built with Swift + SwiftUI](https://img.shields.io/badge/built%20with-Swift%20%2B%20SwiftUI-f4f4f7?style=for-the-badge&labelColor=17130f)](https://apps.gauranshsharma.com/perch/)
+
 Your coding agents, in the notch.
 
 Perch is a native macOS menu-bar app that puts every running AI coding agent into

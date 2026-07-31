@@ -52,7 +52,10 @@ final class ProcessScanner {
         let now = Date()
 
         for proc in found {
-            let cwd = cwd(for: proc.pid)
+            // A windowed app's working directory is wherever it was launched
+            // from — "/" for anything opened from Finder — which is worse than
+            // showing nothing, so it is not resolved for those.
+            let cwd = proc.kind.isWindowedApp ? "" : cwd(for: proc.pid)
             // A hook-backed session already covers this project; no ghost needed.
             if next.contains(where: { $0.kind == proc.kind && !cwd.isEmpty && $0.cwd == cwd }) { continue }
 
@@ -67,7 +70,11 @@ final class ProcessScanner {
             s.pid = proc.pid
             s.state = .working
             s.terminal.tty = proc.tty
-            s.notice = "Detected — no hook integration"
+            // Be specific about why: a terminal agent might gain hooks, a
+            // windowed app that exposes nothing will not.
+            s.notice = proc.kind.isWindowedApp
+                ? "Detected — \(proc.kind.display) exposes no activity to read"
+                : "Detected — no hook integration"
             next.append(s)
         }
 

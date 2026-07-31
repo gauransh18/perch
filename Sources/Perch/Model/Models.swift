@@ -4,13 +4,14 @@ import SwiftUI
 // MARK: - Agent kinds
 
 enum AgentKind: String, Codable, CaseIterable {
-    case claudeCode, codex, gemini, cursor, opencode, aider, amp, droid, qwen, goose, crush, generic
+    case claudeCode, codex, gemini, antigravity, cursor, opencode, aider, amp, droid, qwen, goose, crush, generic
 
     var display: String {
         switch self {
         case .claudeCode: return "Claude Code"
         case .codex: return "Codex"
         case .gemini: return "Gemini CLI"
+        case .antigravity: return "Antigravity"
         case .cursor: return "Cursor Agent"
         case .opencode: return "OpenCode"
         case .aider: return "Aider"
@@ -28,6 +29,7 @@ enum AgentKind: String, Codable, CaseIterable {
         case .claudeCode: return Color(red: 0.85, green: 0.47, blue: 0.30)
         case .codex: return Color(red: 0.40, green: 0.85, blue: 0.70)
         case .gemini: return Color(red: 0.40, green: 0.62, blue: 0.98)
+        case .antigravity: return Color(red: 0.52, green: 0.72, blue: 1.00)
         case .cursor: return Color(red: 0.75, green: 0.75, blue: 0.82)
         case .opencode: return Color(red: 0.98, green: 0.78, blue: 0.35)
         case .aider: return Color(red: 0.55, green: 0.82, blue: 0.45)
@@ -45,6 +47,7 @@ enum AgentKind: String, Codable, CaseIterable {
         case .claudeCode: return "sparkle"
         case .codex: return "chevron.left.forwardslash.chevron.right"
         case .gemini: return "diamond"
+        case .antigravity: return "arrow.up.forward.circle"
         case .cursor: return "cursorarrow"
         case .opencode: return "curlybraces"
         case .aider: return "hammer"
@@ -60,7 +63,7 @@ enum AgentKind: String, Codable, CaseIterable {
     /// Matches a process name from `ps`.
     /// Ships as a windowed macOS app rather than a terminal program, so it has
     /// no tty and there is no pane to jump back to.
-    var isWindowedApp: Bool { self == .codex }
+    var isWindowedApp: Bool { self == .codex || self == .antigravity }
 
     static func fromCommand(_ command: String) -> AgentKind? {
         let name = (command.split(separator: " ").first.map(String.init) ?? command)
@@ -68,6 +71,7 @@ enum AgentKind: String, Codable, CaseIterable {
         switch base {
         case "claude": return .claudeCode
         case "codex", "codex-cli": return .codex
+        case "antigravity": return .antigravity
         case "gemini": return .gemini
         case "cursor-agent": return .cursor
         case "opencode": return .opencode

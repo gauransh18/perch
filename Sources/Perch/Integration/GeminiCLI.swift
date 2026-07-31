@@ -166,14 +166,12 @@ enum GeminiCLIInstaller {
 
     /// True only when Gemini CLI itself looks installed.
     ///
-    /// Deliberately does not accept "~/.gemini exists" as proof: Antigravity and
-    /// other Google tools share that directory, so the bare folder says nothing
-    /// about the CLI. Writing a settings.json on that evidence would leave a
-    /// config file behind for a tool the user never installed.
+    /// Requires the binary. Neither `~/.gemini` nor a `settings.json` inside it
+    /// counts as proof — Antigravity shares that directory and writes its own
+    /// settings.json, so treating either as evidence would have Perch install
+    /// hooks into a file owned by a different tool that ignores them.
     static var isPresent: Bool {
         let fm = FileManager.default
-        if fm.fileExists(atPath: PerchPaths.geminiSettings.path) { return true }
-
         let candidates = ["/opt/homebrew/bin/gemini", "/usr/local/bin/gemini"]
             + (ProcessInfo.processInfo.environment["PATH"] ?? "")
                 .split(separator: ":")

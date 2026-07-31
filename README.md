@@ -49,6 +49,24 @@ one that never sets `TERM_PROGRAM`, which is most of them — still gets focused
 Named terminals only get better names and, where a scripting interface exists, a
 tighter landing. When nothing can be focused, the project opens in Finder.
 
+**Antigravity** — presence only, and that is a limit of the app rather than a
+gap here. Perch shows it as a detected session and nothing more, because
+Antigravity exposes nothing to read:
+
+- No hooks. `hook_event_name` and `BeforeTool` appear nowhere in the app bundle,
+  so the Gemini CLI hook system is not shipped with it.
+- No usable transcript. `~/.gemini/tmp/*/chats/session-*.jsonl` holds only
+  authentication notices, and `logs.json` is empty. The older protobuf
+  conversation store under `~/.gemini/antigravity/conversations` stopped being
+  written when conversations migrated into projects.
+- Live state lives in a VS Code `state.vscdb`, where every agent-shaped key is
+  window and preference state rather than activity.
+- Its local listeners are undocumented, auth-gated and on ephemeral ports, so
+  building against them would break on the next update.
+
+If Antigravity ever ships hooks or writes a real transcript, it slots into the
+same pipeline the other agents use.
+
 **Gemini CLI** — hooked properly, not watched. Gemini's `BeforeTool` event can
 return `decision: "deny"`, so approvals work there the same way they do in Claude
 Code. Perch installs into `~/.gemini/settings.json` and translates at the edge:

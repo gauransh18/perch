@@ -49,6 +49,24 @@ one that never sets `TERM_PROGRAM`, which is most of them — still gets focused
 Named terminals only get better names and, where a scripting interface exists, a
 tighter landing. When nothing can be focused, the project opens in Finder.
 
+**Codex** — Codex has no equivalent of Claude Code's `PreToolUse` hook; its only
+callback fires after a turn has already ended. So Perch watches instead of
+hooking, reading the rollout transcript each session writes as it goes:
+
+```
+~/.codex/sessions/YYYY/MM/DD/rollout-<iso>-<uuid>.jsonl
+```
+
+That gives presence, the live tool feed, session state and cost, parsed
+incrementally so a multi-megabyte transcript is not re-read every couple of
+seconds. What it cannot give is approvals — nothing in Codex fires before a tool
+runs, so there is nothing to hold. Codex also ships as a windowed app rather than
+a terminal program, so there is no pane to jump back to. Both are limits of what
+Codex exposes rather than gaps here, and the notch says so on the session row
+instead of offering a button that cannot work.
+
+Turn it off in Settings if you would rather Perch left `~/.codex` alone.
+
 **Cost** — reads the session transcript and shows tokens and dollars per session
 and in total, so a runaway loop is visible before the bill is.
 

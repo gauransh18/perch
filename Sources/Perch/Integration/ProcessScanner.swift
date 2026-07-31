@@ -96,8 +96,11 @@ final class ProcessScanner {
             let tty = String(fields[1])
             let comm = fields[2...].joined(separator: " ")
             guard let kind = AgentKind.fromCommand(comm) else { continue }
-            guard tty != "??" else { continue }   // ignore daemons / GUI helpers
-            result.append(Found(pid: pid, kind: kind, tty: tty))
+            // No tty means a daemon or a GUI helper. That filter is right for
+            // terminal agents, but Codex ships as a desktop app and would never
+            // pass it — so a windowed agent is allowed through with an empty tty.
+            guard tty != "??" || kind.isWindowedApp else { continue }
+            result.append(Found(pid: pid, kind: kind, tty: tty == "??" ? "" : tty))
         }
         return result
     }

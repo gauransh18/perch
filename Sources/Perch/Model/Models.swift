@@ -58,6 +58,10 @@ enum AgentKind: String, Codable, CaseIterable {
     }
 
     /// Matches a process name from `ps`.
+    /// Ships as a windowed macOS app rather than a terminal program, so it has
+    /// no tty and there is no pane to jump back to.
+    var isWindowedApp: Bool { self == .codex }
+
     static func fromCommand(_ command: String) -> AgentKind? {
         let name = (command.split(separator: " ").first.map(String.init) ?? command)
         let base = (name as NSString).lastPathComponent.lowercased()
@@ -183,7 +187,11 @@ struct ToolActivity: Identifiable, Equatable {
         case "Glob", "Grep": return "magnifyingglass"
         case "WebFetch", "WebSearch": return "globe"
         case "Task", "Agent": return "person.2"
-        case "TodoWrite": return "checklist"
+        case "TodoWrite", "update_plan": return "checklist"
+        case "exec_command", "exec", "write_stdin", "js": return "terminal"
+        case "apply_patch": return "pencil.line"
+        case "view_image": return "photo"
+        case "web_search": return "globe"
         default: return "circle.dotted"
         }
     }
@@ -326,6 +334,12 @@ final class Pricing {
         "sonnet": .init(input: 3,   output: 15, cacheWrite: 3.75,  cacheRead: 0.30),
         "haiku":  .init(input: 1,   output: 5,  cacheWrite: 1.25,  cacheRead: 0.10),
         "fable":  .init(input: 3,   output: 15, cacheWrite: 3.75,  cacheRead: 0.30),
+        // Codex. cacheWrite is unbilled by OpenAI, so it is left at zero
+        // rather than borrowed from the Anthropic shape.
+        "gpt-5.4-mini": .init(input: 0.25, output: 2,  cacheWrite: 0, cacheRead: 0.025),
+        "gpt-5.4":      .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125),
+        "gpt-5":        .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125),
+        "codex":        .init(input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125),
     ]
 
     private init() { loadOverrides() }
@@ -342,7 +356,10 @@ final class Pricing {
 
     func cost(_ u: Usage) -> Double {
         let model = u.model.lowercased()
-        let rate = table.first(where: { model.contains($0.key) })?.value ?? table["sonnet"]!
+        // Longest match first: "gpt-5.4-mini" must not be caught by "gpt-5".
+        let rate = table
+            .filter { model.contains($0.key) }
+            .max(by: { $0.key.count < $1.key.count })?.value ?? table["sonnet"]!
         return (Double(u.input) * rate.input
                 + Double(u.output) * rate.output
                 + Double(u.cacheWrite) * rate.cacheWrite

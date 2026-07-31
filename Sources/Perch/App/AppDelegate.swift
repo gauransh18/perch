@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notch: NotchWindowController!
     private var server: HookServer!
     private var scanner: ProcessScanner!
+    private var codex: CodexWatcher!
     private var statusItem: NSStatusItem!
     private(set) var hotkeys: HotkeyMonitor!
 
@@ -34,6 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         scanner = ProcessScanner(state: state)
         scanner.start()
+
+        codex = CodexWatcher(state: state)
+        codex.start()
 
         hotkeys = HotkeyMonitor(state: state)
         hotkeys.start()

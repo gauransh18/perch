@@ -11,6 +11,7 @@ enum Prefs {
         static let alwaysShow = "alwaysShow"
         static let autoInstallHooks = "autoInstallHooks"
         static let scanProcesses = "scanProcesses"
+        static let watchCodex = "watchCodex"
         static let idleHideSeconds = "idleHideSeconds"
         static let trackCost = "trackCost"
         static let notchStyle = "notchStyle"
@@ -83,6 +84,12 @@ enum Prefs {
     static var scanProcesses: Bool {
         get { d.bool(forKey: Key.scanProcesses) }
         set { d.set(newValue, forKey: Key.scanProcesses) }
+    }
+
+    static var watchCodex: Bool {
+        // Defaults on: unlike hooks, watching costs nothing until Codex runs.
+        get { d.object(forKey: Key.watchCodex) as? Bool ?? true }
+        set { d.set(newValue, forKey: Key.watchCodex) }
     }
 
     static var trackCost: Bool {

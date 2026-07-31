@@ -33,6 +33,7 @@ struct SettingsView: View {
     @State private var sounds = Prefs.sounds
     @State private var alwaysShow = Prefs.alwaysShow
     @State private var scanProcesses = Prefs.scanProcesses
+    @State private var watchCodex = Prefs.watchCodex
     @State private var trackCost = Prefs.trackCost
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var installed = ClaudeCodeInstaller.isInstalled
@@ -109,6 +110,12 @@ struct SettingsView: View {
                 section("Discovery") {
                     Toggle("Detect agents without hook support", isOn: $scanProcesses)
                         .onChange(of: scanProcesses) { _, v in Prefs.scanProcesses = v }
+
+                    Toggle("Watch Codex sessions", isOn: $watchCodex)
+                        .onChange(of: watchCodex) { _, v in Prefs.watchCodex = v }
+                    Text("Codex has no approval hook, so Perch reads its session transcript instead: live tool feed, state and cost, but no approve-before-it-runs.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                     caption("Polls the process list for codex, gemini, aider, opencode, amp, droid, goose, qwen and crush, and lists them read-only.")
                 }
 

@@ -90,7 +90,7 @@ struct ApprovalCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .keyboardShortcut(.escape, modifiers: [])
 
             Spacer()
@@ -155,6 +155,6 @@ private struct ActionButton: View {
                     .fill(filled ? tint : tint.opacity(0.15))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }

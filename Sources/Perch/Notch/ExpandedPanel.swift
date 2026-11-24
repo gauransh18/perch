@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ExpandedPanel: View {
     @ObservedObject var state: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,6 +24,7 @@ struct ExpandedPanel: View {
                     ActivityFeed(session: session)
                         .padding(.horizontal, 8)
                         .padding(.top, 6)
+                        .transition(Motion.content(reduced: reduceMotion))
                 }
             }
 
@@ -38,8 +40,38 @@ private struct SessionRow: View {
     let session: Session
 
     private var isSelected: Bool { state.selected == session.id }
+    /// Mouse is down on the row. Shown immediately, not on mouse-up, so the
+    /// row answers the click the instant it lands.
+    @GestureState private var pressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        HStack(spacing: 10) {
+            selectable
+            actions
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color.white.opacity(rowFill))
+        )
+        .overlay(alignment: .leading) {
+            if session.state == .waiting {
+                Capsule().fill(session.state.color)
+                    .frame(width: 2.5, height: 22)
+                    .padding(.leading, 3)
+            }
+        }
+        .scaleEffect(pressed && !reduceMotion ? 0.99 : 1)
+        .animation(pressed ? Motion.pressDown : Motion.pressUp, value: pressed)
+    }
+
+    /// Everything but the action buttons. The press gesture lives here, not on
+    /// the whole row, so clicking chat/folder/jump presses only that button.
+    /// One gesture does both jobs — press on mouse-down, select on a click that
+    /// didn't travel — so there's no tap and drag competing for the same event.
+    private var selectable: some View {
         HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -91,44 +123,45 @@ private struct SessionRow: View {
                     }
                 }
             }
-
-            HStack(spacing: 4) {
-                RowButton(glyph: "bubble.left.and.text.bubble.right",
-                          help: session.transcriptPath == nil
-                              ? "No transcript yet" : "Open chat") {
-                    ChatWindow.shared.open(for: session)
-                }
-                .disabled(session.transcriptPath == nil)
-                .opacity(session.transcriptPath == nil ? 0.35 : 1)
-
-                RowButton(glyph: "folder", help: "Reveal \(session.project) in Finder") {
-                    guard !session.cwd.isEmpty else { return }
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: session.cwd)])
-                }
-                .disabled(session.cwd.isEmpty)
-                .opacity(session.cwd.isEmpty ? 0.35 : 1)
-
-                RowButton(glyph: "arrow.up.forward.app",
-                          help: session.terminal.jumpDescription) {
-                    TerminalJumper.jump(to: session)
-                }
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(Color.white.opacity(isSelected ? 0.09 : 0.035))
-        )
-        .overlay(alignment: .leading) {
-            if session.state == .waiting {
-                Capsule().fill(session.state.color)
-                    .frame(width: 2.5, height: 22)
-                    .padding(.leading, 3)
-            }
         }
         .contentShape(Rectangle())
-        .onTapGesture { state.selected = isSelected ? nil : session.id }
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($pressed) { _, s, _ in s = true }
+                .onEnded { v in
+                    guard abs(v.translation.width) < 4, abs(v.translation.height) < 4 else { return }
+                    state.selected = isSelected ? nil : session.id
+                }
+        )
+    }
+
+    private var actions: some View {
+        HStack(spacing: 4) {
+            RowButton(glyph: "bubble.left.and.text.bubble.right",
+                      help: session.transcriptPath == nil
+                          ? "No transcript yet" : "Open chat") {
+                ChatWindow.shared.open(for: session)
+            }
+            .disabled(session.transcriptPath == nil)
+            .opacity(session.transcriptPath == nil ? 0.35 : 1)
+
+            RowButton(glyph: "folder", help: "Reveal \(session.project) in Finder") {
+                guard !session.cwd.isEmpty else { return }
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: session.cwd)])
+            }
+            .disabled(session.cwd.isEmpty)
+            .opacity(session.cwd.isEmpty ? 0.35 : 1)
+
+            RowButton(glyph: "arrow.up.forward.app",
+                      help: session.terminal.jumpDescription) {
+                TerminalJumper.jump(to: session)
+            }
+        }
+    }
+
+    private var rowFill: Double {
+        if pressed { return 0.12 }
+        return isSelected ? 0.09 : 0.035
     }
 
     private var subtitle: String {
@@ -158,8 +191,9 @@ private struct RowButton: View {
                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(Color.white.opacity(hovering ? 0.14 : 0.07)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .onHover { hovering = $0 }
+        .animation(Motion.hover, value: hovering)
         .help(help)
     }
 }
@@ -288,9 +322,9 @@ private struct FooterBar: View {
             if state.busyCount > 0 { Label("\(state.busyCount) running", systemImage: "bolt") }
             Spacer()
             Button("Clear") { state.clearFinished() }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             Button("Settings") { SettingsWindow.shared.show() }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
         }
         .font(.system(size: 10, weight: .medium))
         .foregroundStyle(.white.opacity(0.42))

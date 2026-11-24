@@ -75,7 +75,9 @@ struct ChatView: View {
                         .padding(18)
                     }
                     .onChange(of: messages.count) { _, _ in
-                        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                        withAnimation(Motion.systemReduceMotion ? nil : Motion.enter) {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
                     }
                     .onAppear {
                         // First layout lands after the initial load, so the

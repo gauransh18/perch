@@ -11,6 +11,14 @@ struct NotchRootView: View {
     private var mode: Presentation { state.presentation }
     private var open: Bool { mode == .expanded || mode == .approval || mode == .plan }
     private var corner: CGFloat { open ? 20 : 13 }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Picked at render time, so a change that closes the island uses the
+    /// close curve and everything else uses the open one.
+    private var islandAnimation: Animation {
+        if reduceMotion { return Motion.reducedResize }
+        return open ? Motion.islandOpen : Motion.islandClose
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -20,7 +28,7 @@ struct NotchRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // One animation modifier only: stacking several `.animation(_:value:)`
         // on the same view leaves in-flight transitions stranded.
-        .animation(.spring(response: 0.34, dampingFraction: 0.84), value: animationKey)
+        .animation(islandAnimation, value: animationKey)
     }
 
     /// Everything that should trigger the island's spring, folded into one value.
@@ -42,14 +50,14 @@ struct NotchRootView: View {
                 if mode == .plan, let request = state.activeApproval {
                     PlanCard(state: state, request: request)
                         .id(request.id)
-                        .transition(.opacity)
+                        .transition(Motion.content(reduced: reduceMotion))
                 } else if mode == .approval, let request = state.activeApproval {
                     ApprovalCard(state: state, request: request)
                         .id(request.id)
-                        .transition(.opacity)
+                        .transition(Motion.content(reduced: reduceMotion))
                 } else if mode == .expanded {
                     ExpandedPanel(state: state)
-                        .transition(.opacity)
+                        .transition(Motion.content(reduced: reduceMotion))
                 }
             }
         }
@@ -198,6 +206,7 @@ struct Pulse: View {
     let color: Color
     var animating: Bool
     @State private var phase = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -210,27 +219,39 @@ struct Pulse: View {
                     .opacity(phase ? 0 : 0.9)
             )
             .onAppear { if animating { start() } }
-            .onChange(of: animating) { _, on in if on { start() } else { phase = false } }
+            .onChange(of: animating) { _, on in if on { start() } else { stop() } }
+            .onChange(of: reduceMotion) { _, _ in animating ? start() : stop() }
+    }
+
+    /// The ring only runs while an agent is actually busy — it's status, not
+    /// decoration. Under Reduce Motion the coloured dot carries that alone.
+    private func stop() {
+        var t = Transaction(); t.disablesAnimations = true
+        withTransaction(t) { phase = false }
     }
 
     private func start() {
         phase = false
+        guard !reduceMotion else { return }
         withAnimation(.easeOut(duration: 1.1).repeatForever(autoreverses: false)) { phase = true }
     }
 }
 
 struct ActivityBars: View {
     let active: Bool
-    @State private var t: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20, paused: !active)) { context in
+        let moving = active && !reduceMotion
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: !moving)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             HStack(alignment: .center, spacing: 2) {
                 ForEach(0..<4, id: \.self) { i in
-                    let h = active
+                    // Reduce Motion: a still, taller bar set reads as "busy"
+                    // through brightness alone.
+                    let h = moving
                         ? 3 + 8 * (0.5 + 0.5 * sin(time * 5 + Double(i) * 0.9))
-                        : 3
+                        : (active ? 3 + 8 * [0.55, 0.9, 0.7, 0.4][i] : 3)
                     Capsule()
                         .fill(Color.white.opacity(active ? 0.75 : 0.22))
                         .frame(width: 2, height: h)

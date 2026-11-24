@@ -170,7 +170,7 @@ final class NotchWindowController {
                 self.panel.contentView?.needsDisplay = true
             }
             shrinkWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.38, execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.windowShrinkDelay, execute: work)
         }
 
         // Note: don't try to hand key status back here. `resignKey()` is a

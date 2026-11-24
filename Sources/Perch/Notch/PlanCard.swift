@@ -10,6 +10,7 @@ struct PlanCard: View {
     @State private var feedback = ""
     @State private var showingFeedback = false
     @FocusState private var feedbackFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var canSend: Bool {
         !feedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -21,7 +22,9 @@ struct PlanCard: View {
             header
             plan
             Spacer(minLength: 0)
-            if showingFeedback { feedbackField }
+            if showingFeedback {
+                feedbackField.transition(Motion.content(reduced: reduceMotion))
+            }
             actions
         }
     }
@@ -108,7 +111,7 @@ struct PlanCard: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .keyboardShortcut(.escape, modifiers: [])
 
             Spacer()
@@ -122,7 +125,9 @@ struct PlanCard: View {
             } else {
                 PlanButton(title: "Feedback", shortcut: "⌘F",
                            tint: Color(red: 1, green: 0.72, blue: 0.25)) {
-                    showingFeedback = true
+                    withAnimation(reduceMotion ? Motion.reducedFade : Motion.enter) {
+                        showingFeedback = true
+                    }
                     feedbackFocused = true
                 }
                 .keyboardShortcut("f", modifiers: .command)
@@ -145,7 +150,7 @@ struct PlanCard: View {
         state.resolveActive(.feedback(feedback.trimmingCharacters(in: .whitespacesAndNewlines)))
         SoundEngine.shared.play(.deny)
         feedback = ""
-        showingFeedback = false
+        withAnimation(reduceMotion ? Motion.reducedFade : Motion.exit) { showingFeedback = false }
     }
 }
 
@@ -172,7 +177,7 @@ private struct PlanButton: View {
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(filled ? tint : tint.opacity(0.15)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 
